@@ -1,54 +1,65 @@
 import sys
-import logging
 import json
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, LoggingEventHandler
 import os
+import datetime
+
+# Bilgisayarın yerel tarih ve saatini al
+now = datetime.datetime.now()
+
+# Gün, ay, yıl ve saati belirli bir formatta yazdır
+formatted_time = now.strftime("%d-%m-%Y %H:%M:%S")
 
 
 
-log_file_path = r'logfile.log'
-log = logging.getLogger(__name__)
-holder = ""
-# logging.basicConfig(filename=holder, level=logging.INFO, format='%(asctime)s tarihinde şu konumda %(message)s')
 
-logging.basicConfig(filename="logfile.log", level=logging.INFO, format='{"Tarih": "%(asctime)s","Konum": "%(message)s"}')
+dic = {
+    "FilePath" : None,
+    "Date" : now.strftime("%d-%m-%Y %H:%M:%S"),
+    "Event" : None
+}
+
+def changer(type,path):
+    print("changer")
+    if type == "1":
+        dic["Event"] = "Dosya oluşturuldu."
+        dic["FilePath"] = path
+    elif type == "2":
+        dic["Event"] = "Dosya değiştirildi."
+        dic["FilePath"] = path
+    elif type == "3":
+        dic["Event"] = "Dosya silindi."
+        dic["FilePath"] = path
+    elif type == "4":
+        dic["Event"] = "Dosya taşındı"
+        dic["FilePath"] = path
 
 
 def jsoned():
-    print("holder: " +holder)
     with open("logfile.log","w+",encoding="utf-8") as file:
-        jstring = json.dumps(holder)
+        jstring = json.dumps(dic)
         print("jstring: " +jstring)
         file.writelines(jstring)
 
-# logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(message)s')
-
-# class MyHandler(FileSystemEventHandler):
-#     def on_modified(self, event):
-#         if not event.is_directory:
-#             logging.info(f"File modified: {event.src_path}")
-
-#     def on_created(self, event):
-#         if not event.is_directory:
-#             logging.info(f"File created: {event.src_path}")
-
-#     def on_deleted(self, event):
-#         if not event.is_directory:
-#             logging.info(f"File deleted: {event.src_path}")
 
 class MyHandler(LoggingEventHandler):
-    
     def on_created(self, event):
-        # print(super().on_created(event))
-        logging.info(f"dosya oluşturuldu: {event.src_path}")
+        print("created")
+        changer("1",event.src_path)
         jsoned()
+
     def on_modified(self, event):
-        logging.info(f"dosya modifiye edildi: {event.src_path}")
+        changer("2",event.src_path)
+        jsoned()
+
     def on_deleted(self, event):
-        logging.info(f"dosya silindi: {event.src_path}")
+        changer("3",event.src_path)
+        jsoned()
+
     def on_moved(self, event):
-        logging.info(f"dosya silindi: {event.src_path}")
+        changer("4",event.src_path)
+        jsoned()
 
 
 if __name__ == "__main__":
@@ -63,9 +74,11 @@ if __name__ == "__main__":
     observer.schedule(event_handler, path, recursive=True)
     observer.start()
 
+
     try:
         print(f"Observing changes in: {path}")
         while observer.is_alive():
+            print("observer")
             observer.join(1)
     except KeyboardInterrupt:
         print("Process interrupted.")
