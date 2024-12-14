@@ -1,7 +1,7 @@
 import sys
 import json
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, LoggingEventHandler
+from watchdog.events import FileSystemEventHandler
 import os
 import datetime
 
@@ -10,7 +10,7 @@ import datetime
 
 id = 0
 if_added = False
-dic = {"ID": None, "Olay": None, "Tarih": None, "Dosya_Yolu": None}
+dic = {"ID": None, "Olay": None, "Tarih": None, "Eski_Dosya_Yolu": None,"Yeni_Dosya_Yolu":None}
 diclist = []
 
 
@@ -24,10 +24,10 @@ def changer(type):
     elif type == "3":
         dic["Olay"] = "Dosya silindi."
     elif type == "4":
-        dic["Olay"] = "Dosya tasindi veya ismi degistirildi."
+        dic["Olay"] = "Dosya ismi veya konumu degistirildi."
 
 
-def jsoned(path):
+def jsoned(path,npath):
     global id, diclist, if_added
     
     now = datetime.datetime.now()
@@ -37,50 +37,41 @@ def jsoned(path):
         now.strftime("%d-%m-%Y %H:%M:%S") + "." + str(now.microsecond)[:3]
     )
 
-    dic_copy["Dosya_Yolu"] = path
+    dic_copy["Eski_Dosya_Yolu"] = path
+    dic_copy["Yeni_Dosya_Yolu"] = npath
     id += 1
     diclist.append(dic_copy)
     jstring = json.dumps(diclist, ensure_ascii=False)
-    # diclist = [a,b,a]
 
     try:
 
-        with open("D:\Yazilim\Python\PythonWritten\BilisimAltyapi\log.json", "a+", encoding="utf-8") as file:
-            # "/home/ubuntu/bsm/logs/logfile.json"
-            # "D:\Yazilim\Python\PythonWritten\BilisimAltyapi\log.json"
+        with open("/home/ubuntu/bsm/logs/logfile.json", "a+", encoding="utf-8") as file:
 
-                #  file = [a]
-                #  data = [a]
-                #  if_added = False
-            print("\n\n\TRY\n\n\n")
             file.seek(0)
             data = json.load(file)
             
             if not if_added:
 
-                diclist = diclist + data
-                if_added = True
+                diclistcopy = diclist.copy()
+                diclist.clear()
                 
+                for i in data:
+                    
+                    if i in diclistcopy:
+                        continue
+                    
+                    diclist.append(i)
+                diclist = diclist + diclistcopy
+                if_added = True               
             jstring = json.dumps(diclist, ensure_ascii=False)
-            print("Tip:", type(data))
-            print("Data:", data)
             file.seek(0)
             file.truncate()
             file.write(jstring)
-            print("JSTRING",jstring)
-    except (json.JSONDecodeError, FileNotFoundError):
-        print("\n\n\EXCEPT\n\n\n")
-        
-        with open("D:\Yazilim\Python\PythonWritten\BilisimAltyapi\log.json", "w", encoding="utf-8") as file:
-            # "/home/ubuntu/bsm/logs/logfile.json"
-            # "D:\Yazilim\Python\PythonWritten\BilisimAltyapi\log.json"
+
+    except (json.JSONDecodeError, FileNotFoundError):        
+        with open("/home/ubuntu/bsm/logs/logfile.json", "w", encoding="utf-8") as file:
             file.write(jstring)
-            # [a]
 
-    # silinebilir
-
-    for i in diclist:
-        print(i)
 
 
 class MyHandler(FileSystemEventHandler):
@@ -89,9 +80,8 @@ class MyHandler(FileSystemEventHandler):
         self.last_modified_time = datetime.datetime.now()
 
     def on_created(self, event):
-        print("\n\n\nDosya Olusturuldu\n\n\n")
         changer("1")
-        jsoned(event.src_path)
+        jsoned(event.src_path,event.dest_path)
         self.last_modified_time = datetime.datetime.now()
         
     def on_modified(self, event):
@@ -100,35 +90,30 @@ class MyHandler(FileSystemEventHandler):
         if time_diff.total_seconds() < 1:
             return
 
-        print("\n\n\nDosya Degistirildi\n\n\n")
         changer("2")
-        jsoned(event.src_path)
+        jsoned(event.src_path,event.dest_path)
         self.last_modified_time = datetime.datetime.now()
 
     def on_deleted(self, event):
 
-        print("\n\n\nDosya Silindi\n\n\n")
         changer("3")
-        jsoned(event.src_path)
+        jsoned(event.src_path,event.dest_path)
         self.last_modified_time = datetime.datetime.now()
 
     def on_moved(self, event):
 
-        print("\n\n\nDosya Tasindi\n\n\n")
         changer("4")
-        jsoned(event.src_path)
+        jsoned(event.src_path,event.dest_path)
         self.last_modified_time = datetime.datetime.now()
 
 
 if __name__ == "__main__":
 
     path = sys.argv[1] if len(sys.argv) > 1 else "."
-    # path = "Dosya"  # Silinecek
-    path = r"D:\Yazilim\Python\PythonWritten\BilisimAltyapi\Dosya"
-    # "/home/ubuntu/bsm/test"
-    # r"D:\Yazilim\Python\PythonWritten\BilisimAltyapi\Dosya"
+    path = "/home/ubuntu/bsm/test"
+
     if not os.path.exists(path):
-        print(f"Error: The path {path} does not exist.")
+        print(f"Hata: Klasör: {path} bulunmuyor.")
         sys.exit(1)
 
     event_handler = MyHandler()
@@ -138,15 +123,12 @@ if __name__ == "__main__":
 
     try:
 
-        print(f"Observing changes in: {path}")
+        print(f"İzlenen konum: {path}")
         while observer.is_alive():
-
-            print("observer")
-            print("Len: ", len(diclist))
             observer.join(1)
 
     except KeyboardInterrupt:
-        print("Process interrupted.")
+        print("Süreç bozuldu.")
 
     finally:
         observer.stop()
